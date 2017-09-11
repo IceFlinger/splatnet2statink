@@ -193,7 +193,7 @@ def main():
 
 def monitor_battles(s_flag, t_flag, secs, debug):
 	'''Monitor JSON for changes/new battles and upload them.'''
-
+	global API_KEY
 	if filename != None: # local file provided
 		print "Cannot run in monitoring mode provided a local file. Exiting."
 		exit(1)
@@ -218,8 +218,11 @@ def monitor_battles(s_flag, t_flag, secs, debug):
 
 	# don't upload any of the ones already in the file
 	battles = []
-	for result in results:
-		battles.append(int(result["battle_number"]))
+	url     = 'https://stat.ink/api/v2/user-battle?count=50'
+	auth    = {'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/x-msgpack'}
+	r2 = requests.get(url, headers=auth)
+	for result in r2.json():
+		battles.append(int(result["splatnet_number"]))
 
 	mins = str(round(float(secs)/60.0,2))
 	if mins[-2:] == ".0":
@@ -228,11 +231,6 @@ def monitor_battles(s_flag, t_flag, secs, debug):
 
 	try:
 		while True:
-			for i in range(secs, -1, -1):
-				sys.stdout.write("Press Ctrl+C to exit. " + str(i) + " ")
-				sys.stdout.flush()
-				time.sleep(1)
-				sys.stdout.write("\r")
 			data = load_json(False)
 			results = data["results"]
 			for result in results[::-1]: # reversed chrono order
@@ -242,6 +240,11 @@ def monitor_battles(s_flag, t_flag, secs, debug):
 					print "New battle result detected at {}! ({}, {})".format(datetime.datetime.fromtimestamp(int(result["start_time"])).strftime('%I:%M:%S %p').lstrip("0"), mapname, worl)
 					battles.append(int(result["battle_number"]))
 					post_battle(0, [result], s_flag, t_flag, secs, debug, True)
+			for i in range(secs, -1, -1):
+				sys.stdout.write("Press Ctrl+C to exit. " + str(i) + " ")
+				sys.stdout.flush()
+				time.sleep(1)
+				sys.stdout.write("\r")
 	except KeyboardInterrupt:
 		# do a final check
 		print "\nBye!"
